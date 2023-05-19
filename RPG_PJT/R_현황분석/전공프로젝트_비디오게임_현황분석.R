@@ -2,7 +2,7 @@
 getwd()
 video_games <- read.csv("전공프로젝트/data/Video_Games.csv")
 video_games
-View(video_games)
+# View(video_games)
 
 # 결측치 확인하기
 table(is.na(video_games))
@@ -31,16 +31,44 @@ video_games$User_Count <- ifelse(video_games$Critic_Score==' ',NA,video_games$Us
 video_games$Developer <- ifelse(video_games$Critic_Score==' ',NA,video_games$Developer)
 video_games$Rating <- ifelse(video_games$Critic_Score==' ',NA,video_games$Rating)
 
-# 데이터 확인
+# Year_of_Release : N/A 값 최저값(1980)로 바꾸기
 library(dplyr)
-View(video_games)
+# video_games$Year_of_Release <- ifelse(video_games$Year_of_Release == 'N/A', NA, video_games$Year_of_Release)
+#video_games$Year_of_Release <- as.integer(video_games$Year_of_Release)
+# str(video_games)
+# summary(video_games$Year_of_Release)
+video_games$Year_of_Release <- ifelse(video_games$Year_of_Release == 'N/A', 1980, video_games$Year_of_Release)
+video_games$Year_of_Release <- as.integer(video_games$Year_of_Release)
+str(video_games)
+# View(video_games)
+# video_games <- video_games %>% filter(!is.na(video_games$Year_of_Release))
+
+# Year_of_Release :2017년부터는 제거(2016년 이후의 데이터가 거의 없어서)
+video_games$Year_of_Release <- ifelse(video_games$Year_of_Release>2016, NA, video_games$Year_of_Release) 
+video_games <- video_games %>% filter(!is.na(Year_of_Release))
+table(video_games$Year_of_Release)
+
+# 장르 : ''값 NA로 바꾸고 제거
+video_games$Genre <- ifelse(video_games$Genre == '', NA, video_games$Genre)
+video_games <- video_games %>% filter(!is.na(video_games$Genre))
+table(!is.na(video_games$Genre))
+
+
+# 데이터 확인
+# View(video_games)
 video_games %>% filter(!is.na(Critic_Score) & !is.na(Critic_Count)) %>% summary() 
 str(video_games)
-# 데이터 실험
+# 데이터 실험1
 ex <- video_games %>% filter(!is.na(Critic_Score) & !is.na(Critic_Count) & !is.na(User_Score) & !is.na(User_Count))
 table(is.na(ex))
 str(ex)
 video_games %>% arrange(desc(NA_Sales)) %>% select(NA_Sales) %>% head(10)
+# 데이터 실험2
+table(video_games$Year_of_Release)
+year <- ifelse(video_games$Year_of_Release == 'N/A', NA, video_games$Year_of_Release)
+table(year)
+GG <- ifelse(video_games$Genre == '', NA, video_games$Genre)
+table(!is.na(GG))
 
 ######### 현황 분석 - 시각화
 library(ggplot2)
@@ -122,7 +150,7 @@ Pu_JP <- video_games %>% group_by(Publisher) %>%
   geom_col() + 
   labs(x='기업별 판매량(일본)') + theme(legend.position='None')
 
-# 그 외 국가 : Electronic -> Nintendo -> Sony -> Activision -> Take
+# 그 외 국가 : Electronic Arts -> Nintendo -> Sony -> Activision -> Take
 Pu_Other <- video_games %>% group_by(Publisher) %>% 
   summarise(NA_total=sum(NA_Sales),
             EU_total=sum(EU_Sales),
@@ -135,9 +163,17 @@ Pu_Other <- video_games %>% group_by(Publisher) %>%
   geom_col() + 
   labs(x='기업별 판매량(그 외 국가)') + theme(legend.position='None')
 
+# Electronic Arts는 왜 인기일까? -> 피파 시리즈가 인기있다.
+video_games %>% filter(Publisher == 'Electronic Arts') %>% 
+  select(Name,Publisher,Genre,Year_of_Release,Other_Sales) %>% 
+  arrange(desc(Other_Sales)) %>% head(5)
+  
+
 library(gridExtra)
 grid.arrange(Pu_NA,Pu_EU,Pu_JP,Pu_Other, ncol=2,nrow=2)
 # 북미,유럽, 일본 모두 닌텐도 기업이 1위.
+
+
 
 # 전체 자료를 통한 기업 순위 보기
 str(video_games)
@@ -261,6 +297,63 @@ video_games %>% mutate(Global_Sales_percent=round(Global_Sales/sum(Global_Sales)
 # Wii Sports가 전세계 비디오게임 중 0.93%로 가장 매출이 높다.
 # 그 뒤로 Super Mario, Mario Kart, Pockemon Red/Blue가 뒤를 따르고 있다.
 
+####################
+# 연도별로 출시된 장르 수 시각화
+video_games %>% group_by(Genre,Year_of_Release) %>%
+  summarise(count=n()) %>% arrange(desc(count)) %>% 
+  ggplot(aes(x=Year_of_Release,y=count,colour=Genre)) +
+  geom_line() +
+  ggtitle('연도별로 출시된 장르 수 시각화') +
+  theme(axis.title.x = element_text(face='bold', size=12),
+        axis.title.y = element_text(face='bold', size=12),
+        plot.title = element_text(face='bold',
+                                  size=20,
+                                  hjust=0.5,
+                                  color='black'))
+#   Genre  Year_of_Release     n
+# 1 Action            2009   272
+# 2 Action            2012   265
+# 3 Action            2015   253
+# 4 Action            2011   238
+# 5 Action            2010   226
+# 6 Action            2008   221
+# 7 Misc              2008   212
+# 8 Action            2007   210
+# 9 Misc              2009   206
+# 10 Misc              2010   201
+
+# 출시된 장르 수 확인(어떤 장르가 출시가 많이됐나)
+video_games %>% group_by(Genre) %>%
+  summarise('출시된 수'=n()) %>% arrange(desc('출시된 수'))
+#   Genre            n
+# 1 Action        3369
+# 2 Sports        2348
+# 3 Misc          1750
+# 4 Role-Playing  1498
+# 5 Shooter       1323
+# 6 Adventure     1303
+# 7 Racing        1249
+# 8 Platform       888
+# 9 Simulation     873
+# 10 Fighting       849
+# 11 Strategy       683
+# 12 Puzzle         580
+
+# 많이 출시된 장르 top5만 그래프 그려보기
+video_games %>% filter(Genre == c('Action','Sports','Misc','Role-Playing','Shooter'))%>% 
+  group_by(Genre,Year_of_Release) %>%
+  summarise(count=n()) %>% arrange(desc(count)) %>% 
+  ggplot(aes(x=Year_of_Release,y=count,colour=Genre)) +
+  geom_line() +
+  ggtitle('많이 출시된 장르 top5만 그래프 그려보기') +
+  theme(axis.title.x = element_text(face='bold', size=12),
+        axis.title.y = element_text(face='bold', size=12),
+        plot.title = element_text(face='bold',
+                                  size=15,
+                                  hjust=0.5,
+                                  color='black'))
+
+###########
 # 5. 연도별 출시게임 장르 현황 시각화
 ### 북미
 str(video_games)
@@ -277,7 +370,16 @@ video_games %>% group_by(Genre) %>%
 video_games %>% filter(Genre %in% c('Action','Sports','Shooter','Platform','Misc')) %>% 
   select(Name,Year_of_Release,Genre,NA_Sales) %>% group_by(Genre) %>% 
   ggplot(aes(x=Year_of_Release,y=NA_Sales,colour=Genre, group=Genre)) +
-  geom_line()
+  geom_line() +
+  ggtitle('연도별 장르 시각화(북미)') +
+  theme(axis.text.x = element_text(face='bold', size=12),
+        axis.text.y = element_text(face='bold', size=12),
+        axis.title.x = element_text(face='bold', size=12),
+        axis.title.y = element_text(face='bold', size=12),
+        plot.title = element_text(face='bold',
+                                  size=20,
+                                  hjust=0.5,
+                                  color='black'))
 
 video_games %>% filter(Genre %in% c('Action','Sports','Shooter','Platform','Misc')) %>% 
   select(Name,Year_of_Release,Genre,NA_Sales) %>% arrange(desc(NA_Sales)) %>% 
@@ -315,7 +417,16 @@ video_games %>% group_by(Genre) %>%
 video_games %>% filter(Genre %in% c('Action','Sports','Shooter','Racing','Misc')) %>% 
   select(Name,Year_of_Release,Genre,EU_Sales) %>% group_by(Genre) %>% 
   ggplot(aes(x=Year_of_Release,y=EU_Sales,colour=Genre, group=Genre)) +
-  geom_line()
+  geom_line() +
+  ggtitle('연도별 장르 시각화(유럽)') +
+  theme(axis.text.x = element_text(face='bold', size=12),
+        axis.text.y = element_text(face='bold', size=12),
+        axis.title.x = element_text(face='bold', size=12),
+        axis.title.y = element_text(face='bold', size=12),
+        plot.title = element_text(face='bold',
+                                  size=20,
+                                  hjust=0.5,
+                                  color='black'))
 
 video_games %>% filter(Genre %in% c('Action','Sports','Shooter','Racing','Misc')) %>% 
   select(Name,Year_of_Release,Genre,EU_Sales) %>% arrange(desc(EU_Sales)) %>% 
@@ -359,7 +470,16 @@ video_games %>% group_by(Genre) %>%
 video_games %>% filter(Genre %in% c('Role-Playing', 'Action', 'Sports', 'Platform', 'Misc')) %>% 
   select(Name,Year_of_Release,Genre,JP_Sales) %>% group_by(Genre) %>% 
   ggplot(aes(x=Year_of_Release,y=JP_Sales,colour=Genre, group=Genre)) +
-  geom_line()
+  geom_line() +
+  ggtitle('연도별 장르 시각화(일본)') +
+  theme(axis.text.x = element_text(face='bold', size=12),
+        axis.text.y = element_text(face='bold', size=12),
+        axis.title.x = element_text(face='bold', size=12),
+        axis.title.y = element_text(face='bold', size=12),
+        plot.title = element_text(face='bold',
+                                  size=20,
+                                  hjust=0.5,
+                                  color='black'))
 
 video_games %>% filter(Genre %in% c('Role-Playing', 'Action', 'Sports', 'Platform', 'Misc')) %>% 
   select(Name,Year_of_Release,Genre,JP_Sales) %>% arrange(desc(JP_Sales)) %>% 
@@ -400,7 +520,16 @@ video_games %>% group_by(Genre) %>%
 video_games %>% filter(Genre %in% c('Action','Sports','Shooter','Racing','Misc')) %>% 
   select(Name,Year_of_Release,Genre,Other_Sales) %>% group_by(Genre) %>% 
   ggplot(aes(x=Year_of_Release,y=Other_Sales,colour=Genre, group=Genre)) +
-  geom_line()
+  geom_line() +
+  ggtitle('연도별 장르 시각화(그 외)') +
+  theme(axis.text.x = element_text(face='bold', size=12),
+        axis.text.y = element_text(face='bold', size=12),
+        axis.title.x = element_text(face='bold', size=12),
+        axis.title.y = element_text(face='bold', size=12),
+        plot.title = element_text(face='bold',
+                                  size=20,
+                                  hjust=0.5,
+                                  color='black'))
 
 video_games %>% filter(Genre %in% c('Action','Sports','Shooter','Racing','Misc')) %>% 
   select(Name,Year_of_Release,Genre,Other_Sales) %>% arrange(desc(Other_Sales)) %>% 
@@ -424,3 +553,81 @@ video_games %>% filter(Genre %in% c('Action','Sports','Shooter')) %>%
   select(Name,Year_of_Release,Genre,Other_Sales) %>% group_by(Genre) %>% 
   ggplot(aes(x=Year_of_Release,y=Other_Sales,color=Genre, group=Genre)) +
   geom_line()
+
+#####
+#
+
+video_games %>% group_by(Genre) %>% 
+  ggplot(aes(x=Genre,y=NA_Sales, group=Genre)) +
+  geom_line()
+
+#####
+# 출시연도별 장르 흐름 시각화 _ 누적막대그래프 
+str(video_games)
+
+video_games %>% select(Name,Year_of_Release,Genre,Global_Sales) %>% group_by(Genre) %>% 
+  ggplot(aes(x=Year_of_Release,y=Global_Sales,fill=Genre, group=Genre)) +
+  geom_bar(stat='identity')
+
+video_games %>% select(Name,Year_of_Release,Genre,Global_Sales) %>% group_by(Genre) %>% 
+  ggplot(aes(x=Year_of_Release,y=Global_Sales,colour=Genre, group=Genre)) +
+  geom_point()
+
+video_games %>% select(Name,Year_of_Release,Genre,Global_Sales) %>% group_by(Genre) %>% 
+  ggplot(aes(x=Year_of_Release,y=Global_Sales,colour=Genre, group=Genre)) +
+  geom_line()
+
+
+video_games %>% select(Name,Year_of_Release,Genre,Global_Sales) %>% group_by(Genre) %>% 
+  ggplot(aes(x=Year_of_Release,y=Global_Sales,fill=Genre, group=Genre)) +
+  geom_bar(stat='identity',position='dodge')
+
+# 글로벌세일즈 top5 중 장르별 판매량
+video_games %>% group_by(Year_of_Release) %>% 
+  summarise(Global_total=sum(Global_Sales)) %>% 
+  arrange(desc(Global_total)) %>% head(5) # 2008 2009 2007 2010 2006
+
+video_games %>% filter(Year_of_Release %in% c(2008,2009,2007,2010,2006)) %>%
+  select(Name,Year_of_Release,Genre,Global_Sales) %>% group_by(Genre) %>% 
+  ggplot(aes(x=Year_of_Release,y=Global_Sales,fill=Genre, group=Genre)) +
+  geom_bar(stat='identity',position='dodge')
+
+
+###########################
+# 통계적 검증
+
+# 글로벌 세일즈 확인용
+video_games %>% group_by(Genre) %>% 
+  summarise(NA_total=sum(NA_Sales),
+            EU_total=sum(EU_Sales),
+            JP_total=sum(JP_Sales),
+            Other_total=sum(Other_Sales),
+            Global_total=sum(Global_Sales)) %>% 
+  arrange(desc(Global_total)) %>% 
+  head(5) # Action Sports Shooter Racing Misc
+
+video_games %>% filter(Genre %in% c('Action','Sports','Shooter')) %>% 
+  select(Name,Year_of_Release,Genre,Global_Sales) %>% group_by(Genre) %>% 
+  ggplot(aes(x=Year_of_Release,y=Global_Sales,color=Genre, group=Genre)) +
+  geom_line()
+
+# 통계적 검증
+trend <- video_games %>%
+  mutate(Year =ifelse(Year_of_Release<1990, 1980,
+                       ifelse(Year_of_Release<2000, 1990,
+                              ifelse(Year_of_Release<2010, 2000, 2010)))) %>% 
+  select(Global_Sales,Year,Genre) %>% 
+  group_by(Genre,Year) %>% summarise(Global_total=sum(Global_Sales))
+
+trend
+# trend 데이터를 피봇테이블 형식으로 변환
+library(reshape2)
+trend_dcast = dcast(trend, Year ~ Genre, sum , value.var = 'Global_total')
+# 카이제곱 검정
+chisq.test(trend_dcast, correct = TRUE) #  p-value < 2.2e-16 
+# 귀무가설 (H0): 연대와 장르사이에 관련이 없다.(비디오 게임 장르의 트랜드는 변하지 않는다)
+# 대립가설 (H1): 연대와 장르사이에 관련이 있다.(비디오 게임 장르의 트랜드는 변한다)
+
+# 카이제곱 검정을 시행한 결과 p-value값이 < 2.2e-16이 나왔다.
+# 비디오 게임장르에서 트랜드가 없다는 귀무가설을 기각한다.
+# 즉, 비디오게임 시장에서 게임장르의 트랜드는 계속해서 변화하는 것으로 판단할 수 있다
